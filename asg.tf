@@ -1,9 +1,10 @@
 resource "aws_autoscaling_group" "ecs_nodes" {
-  name_prefix           = "CLUSTER_NODES_"
-  max_size              = local.asg_max_size
-  min_size              = local.asg_min_size
-  vpc_zone_identifier   = local.subnets_ids
-  protect_from_scale_in = local.protect_from_scale_in
+  name_prefix               = "CLUSTER_NODES_"
+  max_size                  = local.asg_max_size
+  min_size                  = local.asg_min_size
+  vpc_zone_identifier       = local.subnets_ids
+  protect_from_scale_in     = local.protect_from_scale_in
+  health_check_grace_period = local.health_check_grace_period
 
   mixed_instances_policy {
     instances_distribution {
@@ -15,6 +16,32 @@ resource "aws_autoscaling_group" "ecs_nodes" {
       launch_template_specification {
         launch_template_id = aws_launch_template.node.id
         version            = "$Latest"
+      }
+
+      dynamic "override" {
+        for_each = local.instance_requirements
+
+        content {
+          instance_requirements {
+
+            dynamic "memory_mib" {
+              for_each = override.value["memory_mib"]
+              content {
+                min = memory_mib.value["min"]
+                max = memory_mib.value["max"]
+              }
+            }
+            dynamic "vcpu_count" {
+              for_each = override.value["vcpu_count"]
+              content {
+                min = vcpu_count.value["min"]
+                max = vcpu_count.value["max"]
+              }
+            }
+
+          }
+
+        }
       }
 
       dynamic "override" {

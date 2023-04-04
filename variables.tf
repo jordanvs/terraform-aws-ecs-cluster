@@ -9,11 +9,36 @@ variable "trusted_cidr_blocks" {
 }
 
 variable "instance_types" {
-  description = "ECS node instance types. Maps of pairs like `type = weight`. Where weight gives the instance type a proportional weight to other instance types."
+  description = "ECS node instance types. Maps of pairs like `type = weight`. Where weight gives the instance type a proportional weight to other instance types. Cannot be provided along with instance_requirements."
   type        = map(any)
-  default = {
-    "t3a.small" = 2
-  }
+  default     = {}
+  # default = {
+  #   "t3a.small" = 2
+  # }
+}
+
+variable "instance_requirements" {
+  description = "ECS node instance requirements. An object specifying memory_mib, vcpu_count min and max. Pass null in for min or max for an empty value. Cannot be provided along with instance_types."
+  type = list(object({
+    memory_mib = list(object({
+      min = number
+      max = number
+    }))
+    vcpu_count = list(object({
+      min = number
+      max = number
+    }))
+  }))
+  default = [{
+    memory_mib = [{
+      min = 512000
+      max = 512000
+    }]
+    vcpu_count = [{
+      min = 1
+      max = 1
+    }]
+  }]
 }
 
 variable "protect_from_scale_in" {
@@ -68,6 +93,12 @@ variable "on_demand_base_capacity" {
   default     = 0
 }
 
+variable "health_check_grace_period" {
+  description = "Time period in seconds that delays the first health check until your instances finish initializing."
+  type        = number
+  default     = null
+}
+
 variable "lifecycle_hooks" {
   description = "A list of lifecycle hook actions. See details at https://docs.aws.amazon.com/autoscaling/ec2/userguide/lifecycle-hooks.html."
   type = list(object({
@@ -101,22 +132,24 @@ data "aws_ssm_parameter" "ecs_ami_arm64" {
 }
 
 locals {
-  ami_id                  = var.arm64 ? data.aws_ssm_parameter.ecs_ami_arm64.value : data.aws_ssm_parameter.ecs_ami.value
-  asg_max_size            = var.asg_max_size
-  asg_min_size            = var.asg_min_size
-  ebs_disks               = var.ebs_disks
-  instance_types          = var.instance_types
-  lifecycle_hooks         = var.lifecycle_hooks
-  name                    = replace(var.cluster_name, " ", "_")
-  on_demand_base_capacity = var.on_demand_base_capacity
-  protect_from_scale_in   = var.protect_from_scale_in
-  sg_ids                  = distinct(concat(var.security_group_ids, [aws_security_group.ecs_nodes.id]))
-  spot                    = var.spot == true ? 0 : 100
-  subnets_ids             = var.subnets_ids
-  target_capacity         = var.target_capacity
-  trusted_cidr_blocks     = var.trusted_cidr_blocks
-  user_data               = var.user_data == "" ? [] : [var.user_data]
-  vpc_id                  = data.aws_subnet.default.vpc_id
+  ami_id                    = var.arm64 ? data.aws_ssm_parameter.ecs_ami_arm64.value : data.aws_ssm_parameter.ecs_ami.value
+  asg_max_size              = var.asg_max_size
+  asg_min_size              = var.asg_min_size
+  ebs_disks                 = var.ebs_disks
+  instance_types            = var.instance_types
+  instance_requirements     = var.instance_requirements
+  health_check_grace_period = var.health_check_grace_period
+  lifecycle_hooks           = var.lifecycle_hooks
+  name                      = replace(var.cluster_name, " ", "_")
+  on_demand_base_capacity   = var.on_demand_base_capacity
+  protect_from_scale_in     = var.protect_from_scale_in
+  sg_ids                    = distinct(concat(var.security_group_ids, [aws_security_group.ecs_nodes.id]))
+  spot                      = var.spot == true ? 0 : 100
+  subnets_ids               = var.subnets_ids
+  target_capacity           = var.target_capacity
+  trusted_cidr_blocks       = var.trusted_cidr_blocks
+  user_data                 = var.user_data == "" ? [] : [var.user_data]
+  vpc_id                    = data.aws_subnet.default.vpc_id
 
   tags = {
     Name   = var.cluster_name,
