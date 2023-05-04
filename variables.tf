@@ -29,16 +29,7 @@ variable "instance_requirements" {
       max = number
     }))
   }))
-  default = [{
-    memory_mib = [{
-      min = 512000
-      max = 512000
-    }]
-    vcpu_count = [{
-      min = 1
-      max = 1
-    }]
-  }]
+  default = []
 }
 
 variable "protect_from_scale_in" {
